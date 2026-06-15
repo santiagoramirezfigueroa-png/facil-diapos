@@ -1,7 +1,18 @@
-const { app, BrowserWindow, Menu } = require('electron');
+const { app, BrowserWindow, Menu, session } = require('electron');
 const path = require('path');
 
 function createWindow() {
+  // Set up the webRequest interceptor on the default session to bypass Unsplash 401 bot block.
+  // Unsplash blocks standard browser User-Agents (containing Mozilla/5.0...) with a 401.
+  // We override the User-Agent to 'Electron' for all Unsplash requests to bypass this check.
+  session.defaultSession.webRequest.onBeforeSendHeaders(
+    { urls: ['https://unsplash.com/*', 'https://*.unsplash.com/*'] },
+    (details, callback) => {
+      details.requestHeaders['User-Agent'] = 'Electron';
+      callback({ requestHeaders: details.requestHeaders });
+    }
+  );
+
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
