@@ -12,6 +12,7 @@ jobs:
     name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [windows-latest, macos-latest]
 
@@ -34,9 +35,9 @@ jobs:
       - name: Package Desktop App
         run: |
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            npx electron-builder --win
+            npx electron-builder --win -p never
           else
-            npx electron-builder --mac
+            npx electron-builder --mac -p never
           fi
         shell: bash
 
