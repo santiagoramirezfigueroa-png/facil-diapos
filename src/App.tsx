@@ -144,10 +144,39 @@ export default function App() {
     if (!unsplashQuery.trim()) return;
     setIsSearchingUnsplash(true);
     try {
-      // Internal Unsplash API with corsproxy.io wrapper
       const targetUrl = `https://unsplash.com/napi/search/photos?query=${encodeURIComponent(unsplashQuery)}&per_page=16`;
-      const response = await fetch(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`);
-      if (response.ok) {
+      const isElectron = navigator.userAgent.toLowerCase().includes('electron');
+      
+      let response;
+      if (isElectron) {
+        // Direct fetch in Electron (no proxy needed because webSecurity: false is configured)
+        response = await fetch(targetUrl);
+      } else {
+        // In the browser, try corsproxy.io first
+        try {
+          response = await fetch(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`);
+          if (!response.ok) throw new Error('corsproxy.io failed');
+        } catch (err) {
+          // Fallback to allorigins.win if corsproxy fails
+          const allOriginsUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+          const allOriginsResp = await fetch(allOriginsUrl);
+          if (allOriginsResp.ok) {
+            const allOriginsData = await allOriginsResp.json();
+            const parsedContents = JSON.parse(allOriginsData.contents);
+            const results = parsedContents.results || [];
+            setUnsplashPhotos(results.map((p: any) => ({
+              id: p.id,
+              thumb: p.urls.thumb,
+              full: p.urls.regular,
+              alt: p.alt_description || 'Foto de Unsplash'
+            })));
+            return;
+          }
+          throw err;
+        }
+      }
+
+      if (response && response.ok) {
         const data = await response.json();
         const results = data.results || [];
         setUnsplashPhotos(results.map((p: any) => ({
@@ -167,8 +196,9 @@ export default function App() {
   const selectUnsplashPhoto = async (photoUrl: string) => {
     setIsDownloadingImage(true);
     try {
-      const proxyUrl = `https://images.weserv.nl/?url=${encodeURIComponent(photoUrl)}`;
-      const response = await fetch(proxyUrl);
+      const isElectron = navigator.userAgent.toLowerCase().includes('electron');
+      const targetUrl = isElectron ? photoUrl : `https://images.weserv.nl/?url=${encodeURIComponent(photoUrl)}`;
+      const response = await fetch(targetUrl);
       if (response.ok) {
         const blob = await response.blob();
         const reader = new FileReader();
@@ -180,7 +210,7 @@ export default function App() {
         setModalImageSrc(photoUrl);
       }
     } catch (e) {
-      console.warn('CORS proxy failed, falling back to direct URL:', e);
+      console.error('Error downloading Unsplash image', e);
       setModalImageSrc(photoUrl);
     } finally {
       setIsDownloadingImage(false);

@@ -12,6 +12,7 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
+      webSecurity: false
     },
     icon: path.join(__dirname, '../public/logo.png'),
   });
